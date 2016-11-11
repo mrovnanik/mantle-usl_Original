@@ -16,7 +16,7 @@ along with this software (see the LICENSE.md file). If not, see
 <!-- General Guideline Verbs: GET=find, POST=create/do, PUT=store (create or update), PATCH=update, DELETE=delete  -->
 
 <resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/rest-api-2.0.xsd"
-        name="mantle" displayName="Mantle USL REST API" version="1.0.2"
+        name="mantle" displayName="Mantle USL REST API" version="1.1.0"
         description="Mantle services and various convenient entity operations are available through this API.
             Not all possible entity operations are included in this API as they can be done through the automatic Entity
             REST API using Mantle entity names. See more information about Mantle at
@@ -77,13 +77,6 @@ along with this software (see the LICENSE.md file). If not, see
                     <service name="mantle.party.ContactServices.get#PrimaryEmailAddress"/></method></resource></resource>
                 <resource name="other"><method type="patch">
                     <service name="mantle.party.ContactServices.update#PartyContactOther"/></method></resource>
-            </resource>
-
-            <resource name="contactMechPurposes">
-                <method type="get"><entity name="mantle.party.contact.ContactMechPurpose" operation="list"/></method>
-                <id name="contactMechPurposeId">
-                    <method type="get"><entity name="mantle.party.contact.ContactMechPurpose" operation="one"/></method>
-                </id>
             </resource>
 
             <resource name="communicationEvents"><method type="get">
@@ -151,6 +144,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <service name="mantle.party.ContactServices.create#EmailAddress"/></method></resource>
             <resource name="others"><method type="post">
                 <service name="mantle.party.ContactServices.create#ContactMechOther"/></method></resource>
+
+            <resource name="purposes">
+                <method type="get"><entity name="mantle.party.contact.ContactMechPurpose" operation="list"/></method>
+                <id name="contactMechPurposeId">
+                    <method type="get"><entity name="mantle.party.contact.ContactMechPurpose" operation="one"/></method></id>
+            </resource>
         </resource>
 
         <!-- ========== Communication Events ========== -->

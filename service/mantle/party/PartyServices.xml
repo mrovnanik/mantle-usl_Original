@@ -70,7 +70,16 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
         </actions>
     </service>
+
     <service verb="setup" noun="UserOrganizationInfo" authenticate="anonymous-view">
+        <description>
+            Get internal organizations the current user is related to and the user's active organization if set
+            (in the ACTIVE_ORGANIZATION UserPreference) Designed to be called per screen render in screen.pre-actions,
+            and may be useful in other contexts.
+
+            This service gets data that is meant to be used in filterMap fields of moqui.security.EntityFilterSet
+            records so returns results limited to the organizations a user is directly related to.
+        </description>
         <out-parameters>
             <parameter name="userOrgList" type="List"><parameter name="userOrg" type="Map">
                 <auto-parameters entity-name="mantle.party.PartyDetail"/></parameter></parameter>
@@ -199,7 +208,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
                 <!-- login the user -->
                 <if condition="loginAfterCreate &amp;&amp; newPassword">
-                    <script>ec.user.loginUser(username, newPassword, null)</script></if>
+                    <script>ec.user.loginUser(username, newPassword)</script></if>
             </if>
         </actions>
     </service>
@@ -321,8 +330,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="userId" from="userAccountList?.first?.userId"/>
             </if>
             <if condition="userId"><service-call name="update#moqui.security.UserAccount" in-map="context"/></if>
-            <service-call name="mantle.party.ContactServices.update#PartyContactOther"
-                    in-map="[infoString:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
+            <if condition="emailAddress">
+                <service-call name="mantle.party.ContactServices.update#PartyContactOther"
+                        in-map="[infoString:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
+            </if>
         </actions>
     </service>
 
@@ -373,11 +384,9 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-set value-field="party" include="nonpk" map="context"/>
             <entity-update value-field="party"/>
             <if condition="party.partyTypeEnumId == 'PtyPerson'">
-                <service-call name="update#mantle.party.Person" in-map="context"/>
-            </if>
+                <service-call name="update#mantle.party.Person" in-map="context"/></if>
             <if condition="party.partyTypeEnumId == 'PtyOrganization'">
-                <service-call name="update#mantle.party.Organization" in-map="context"/>
-            </if>
+                <service-call name="update#mantle.party.Organization" in-map="context"/></if>
         </actions>
     </service>
 
@@ -448,7 +457,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- parameters for clock in -->
             <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
-            <parameter name="emplPositionClassId"/>
+            <parameter name="workTypeEnumId"/>
             <parameter name="workEffortId"/>
             <!-- parameters for clock out -->
             <parameter name="breakHours" type="BigDecimal"/>
@@ -499,34 +508,31 @@ along with this software (see the LICENSE.md file). If not, see
                 </entity-find>
                 <set field="openTimeEntry" from="openTimeEntryList ? openTimeEntryList[0] : null"/>
             </if>
-            <if condition="scanPurposeEnumId == 'PbspClockIn'">
-                <then>
-                    <!-- If scanPurposeEnumId=PbspClockIn call mantle.work.TimeServices.create#TimeEntryClockIn
-                        If there is an open TimeEntry call mantle.work.TimeServices.store#TimeEntry first -->
-                    <if condition="openTimeEntry">
-                        <service-call name="mantle.work.TimeServices.store#TimeEntry"
-                                in-map="openTimeEntry + [thruDate:scanDate, breakHours:breakHours, pieceCount:pieceCount]"/>
-                        <set field="closedTimeEntryId" from="openTimeEntry.timeEntryId"/>
-                    </if>
+            <if condition="scanPurposeEnumId == 'PbspClockIn'"><then>
+                <!-- If scanPurposeEnumId=PbspClockIn call mantle.work.TimeServices.create#TimeEntryClockIn
+                    If there is an open TimeEntry call mantle.work.TimeServices.store#TimeEntry first -->
+                <if condition="openTimeEntry">
+                    <service-call name="mantle.work.TimeServices.store#TimeEntry"
+                            in-map="openTimeEntry + [thruDate:scanDate, breakHours:breakHours, pieceCount:pieceCount]"/>
+                    <set field="closedTimeEntryId" from="openTimeEntry.timeEntryId"/>
+                </if>
 
-                    <set field="fromDate" from="scanDate"/>
-                    <service-call name="mantle.work.TimeServices.create#TimeEntryClockIn" in-map="context" out-map="context"/>
+                <set field="fromDate" from="scanDate"/>
+                <service-call name="mantle.work.TimeServices.create#TimeEntryClockIn" in-map="context" out-map="context"/>
+                <service-call name="update#mantle.party.PartyBadgeScan"
+                        in-map="[partyBadgeId:partyBadgeId, scanDate:scanDate, timeEntryId:timeEntryId]"/>
+            </then><else-if condition="scanPurposeEnumId == 'PbspClockOut'">
+                <!-- If scanPurposeEnumId=PbspClockOut call mantle.work.TimeServices.store#TimeEntry -->
+                <if condition="openTimeEntry"><then>
+                    <service-call name="mantle.work.TimeServices.store#TimeEntry"
+                            in-map="openTimeEntry + [thruDate:scanDate, breakHours:breakHours, pieceCount:pieceCount]"/>
+                    <set field="closedTimeEntryId" from="openTimeEntry.timeEntryId"/>
                     <service-call name="update#mantle.party.PartyBadgeScan"
-                            in-map="[partyBadgeId:partyBadgeId, scanDate:scanDate, timeEntryId:timeEntryId]"/>
-                </then>
-                <else-if condition="scanPurposeEnumId == 'PbspClockOut'">
-                    <!-- If scanPurposeEnumId=PbspClockOut call mantle.work.TimeServices.store#TimeEntry -->
-                    <if condition="openTimeEntry">
-                        <service-call name="mantle.work.TimeServices.store#TimeEntry"
-                                in-map="openTimeEntry + [thruDate:scanDate, breakHours:breakHours, pieceCount:pieceCount]"/>
-                        <set field="closedTimeEntryId" from="openTimeEntry.timeEntryId"/>
-                        <service-call name="update#mantle.party.PartyBadgeScan"
-                                in-map="[partyBadgeId:partyBadgeId, scanDate:scanDate, timeEntryId:closedTimeEntryId]"/>
-
-                        <else><return message="Scan succeeded but cannot clock out, no open time entry found"/></else>
-                    </if>
-                </else-if>
-            </if>
+                            in-map="[partyBadgeId:partyBadgeId, scanDate:scanDate, timeEntryId:closedTimeEntryId]"/>
+                </then><else>
+                    <return message="Scan succeeded but cannot clock out, no open time entry found"/>
+                </else></if>
+            </else-if></if>
         </actions>
     </service>
 

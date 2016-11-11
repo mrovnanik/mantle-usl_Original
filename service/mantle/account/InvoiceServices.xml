@@ -18,6 +18,11 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="invoice" type="Map"/>
+            <parameter name="editableStatusIds" type="Set"/>
+            <parameter name="invoiceEditable" type="Boolean"/>
+            <parameter name="recordPaymentStatusIds" type="Set"/>
+            <parameter name="canRecordPayments" type="Boolean"/>
+
             <parameter name="isFromPartyOrgInternal" type="Boolean"><description>If true invoice is receivable</description></parameter>
             <parameter name="isToPartyOrgInternal" type="Boolean"><description>If true invoice is payable</description></parameter>
             <parameter name="dupInvoiceList" type="List"><description>List of invoices matching referenceNumber and
@@ -40,7 +45,12 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
-            <if condition="!invoice"><return error="true" message="Invoice not found with ID [${invoiceId}]"/></if>
+            <if condition="invoice == null"><return error="true" message="Invoice not found with ID ${invoiceId}"/></if>
+
+            <set field="editableStatusIds" from="new HashSet(['InvoiceInProcess', 'InvoiceIncoming', 'InvoiceReceived'])"/>
+            <set field="invoiceEditable" from="editableStatusIds.contains(invoice.statusId)"/>
+            <set field="recordPaymentStatusIds" from="new HashSet(['InvoiceInProcess', 'InvoiceFinalized', 'InvoiceSent', 'InvoiceWriteOff', 'InvoiceReceived', 'InvoiceApproved'])"/>
+            <set field="canRecordPayments" from="recordPaymentStatusIds.contains(invoice.statusId)"/>
 
             <!-- see if from/to parties are internal orgs -->
             <entity-find entity-name="mantle.party.PartyRole" list="fromOrgInternalList">
@@ -256,22 +266,21 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="dueDate == null &amp;&amp; settlementTermId">
                 <entity-find-one entity-name="mantle.account.invoice.SettlementTerm" value-field="settlementTerm"/>
                 <script><![CDATA[
-                    def dueDateDt = new org.joda.time.MutableDateTime(invoiceDate.time,
-                            org.joda.time.DateTimeZone.forTimeZone(ec.entity.databaseTimeZone))
+                    def dueDateDt = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(invoiceDate.time), ec.entity.databaseTimeZone.toZoneId())
 
                     switch (settlementTerm.termTypeEnumId) {
                         case 'TtFinPaymentDayNextMonth':
-                            dueDateDt.addMonths(1)
+                            dueDateDt = dueDateDt.plusMonths(1)
                         case 'TtFinPaymentDayCurMonth':
-                            int dayOfMonth = settlementTerm.termValue ?: 1
-                            if (dayOfMonth > dueDateDt.dayOfMonth().getMaximumValue())
-                                dayOfMonth = dueDateDt.dayOfMonth().getMaximumValue()
-                            dueDateDt.setDayOfMonth(dayOfMonth)
+                            int dayOfMonth = settlementTerm.termValue as long ?: 1
+                            int maxDays = dueDateDt.range(java.time.temporal.ChronoField.DAY_OF_MONTH).getMaximum()
+                            if (dayOfMonth > maxDays) dayOfMonth = maxDays
+                            dueDateDt = dueDateDt.withDayOfMonth(dayOfMonth)
                             break
                         default:
-                            dueDateDt.addDays((settlementTerm.termValue as int) ?: 0)
+                            dueDateDt = dueDateDt.plusDays((settlementTerm.termValue as long) ?: 0)
                     }
-                    dueDate = new java.sql.Timestamp(dueDateDt.getMillis())
+                    dueDate = java.sql.Timestamp.from(dueDateDt.toInstant())
                     // could happen for TtFinPaymentDayCurMonth with a day less than today; handle differently?
                     if (dueDate < invoiceDate) dueDate = invoiceDate
                 ]]></script>
@@ -480,6 +489,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- Invoices based on Shipment -->
     <service verb="create" noun="SalesShipmentInvoices">
+        <!-- transaction=cache note: called by SECA and combined with other service that don't support tx cache so can't -->
         <in-parameters>
             <parameter name="shipmentId" required="true"/>
             <parameter name="statusId"><description>If specified after create set to this statusId (always created
@@ -503,13 +513,18 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
             <order-map-list list="shipmentItemSourceList"><order-by field-name="orderId"/><order-by field-name="orderItemSeqId"/></order-map-list>
 
+            <set field="orderHeaderMap" from="[:]"/>
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
                 <set field="orderItem" from="shipmentItemSource.'mantle.order.OrderItem'"/>
                 <if condition="!orderItem || shipmentItemSource.invoiceId"><continue/></if>
                 <set field="itemAmount" from="(orderItem.unitAmount ?: 0) * (orderItem.quantity ?: 0)"/>
                 <if condition="itemAmount == 0"><continue/></if>
 
-                <set field="orderHeader" from="shipmentItemSource.'mantle.order.OrderHeader'"/>
+                <set field="orderHeader" from="orderHeaderMap.get(shipmentItemSource.orderId)"/>
+                <if condition="orderHeader == null">
+                    <set field="orderHeader" from="shipmentItemSource.'mantle.order.OrderHeader'"/>
+                    <script>orderHeaderMap.put(shipmentItemSource.orderId, orderHeader)</script>
+                </if>
                 <set field="invoiceId" from="invoiceIdByOrderPartIdMap[orderItem.orderId + ':' + orderItem.orderPartSeqId]"/>
 
                 <if condition="!invoiceId">
@@ -681,7 +696,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="orderId" from="orderAndPartId.substring(0, orderAndPartId.indexOf(':'))"/>
                 <set field="orderPartSeqId" from="orderAndPartId.substring(orderAndPartId.indexOf(':') + 1)"/>
                 <set field="invoiceId" from="invoiceIdByOrderIdEntry.value"/>
-                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+                <set field="orderHeader" from="orderHeaderMap.get(orderId)"/>
+                <if condition="orderHeader == null">
+                    <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+                    <script>orderHeaderMap.put(orderId, orderHeader)</script>
+                </if>
                 <entity-find entity-name="mantle.order.OrderItem" list="otherOrderItemList">
                     <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
                     <econdition field-name="productId" from="null"/><econdition field-name="parentItemSeqId" from="null"/>
@@ -738,11 +757,9 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.BasicServices.find#EnumerationByParent" out-map="shipmentTypeOut"
                     in-map="[parentEnumId:'ShpTpIncoming']"/>
             <if condition="shipment.shipmentTypeEnumId in shipmentTypeOut.enumIdSet">
-                <set field="handleIssuances" from="false"/>
+                <set field="handleIssuances" from="false"/><set field="applyPayments" from="false"/>
                 <set field="handleReceipts" from="true"/>
-                <set field="applyPayments" from="false"/>
-                <service-call name="mantle.account.InvoiceServices.create#SalesShipmentInvoices" in-map="context"
-                        out-map="context"/>
+                <service-call name="mantle.account.InvoiceServices.create#SalesShipmentInvoices" in-map="context" out-map="context"/>
             </if>
         </actions>
     </service>
@@ -1049,6 +1066,63 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters><parameter name="paymentIdList" type="List"/></out-parameters>
         <actions>
             <!-- TODO: implement this... -->
+        </actions>
+    </service>
+
+    <service verb="distribute" noun="InvoiceItemDetail">
+        <in-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="invoiceItemSeqId" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.invoice.InvoiceItem" value-field="invoiceItem"/>
+            <entity-find entity-name="mantle.account.invoice.InvoiceItemDetail" list="detailList">
+                <econdition field-name="invoiceId"/><econdition field-name="invoiceItemSeqId"/></entity-find>
+            <set field="quantityRemaining" from="invoiceItem.quantity"/>
+            <set field="totalFacilitySize" from="0"/>
+            <set field="detailsToUpdate" from="[]"/>
+            <set field="facilityMap" from="[:]"/>
+            <set field="facilitySizeMap" from="[:]"/>
+            <iterate list="detailList" entry="detail">
+                <if condition="detail.facilityId == null"><continue/></if>
+                <if condition="detail.quantity"><then>
+                    <set field="quantityRemaining" from="quantityRemaining - detail.quantity"/>
+                </then><else>
+                    <set field="detailFacility" from="facilityMap.get(detail.facilityId)"/>
+                    <if condition="detailFacility == null">
+                        <entity-find-one entity-name="mantle.facility.Facility" value-field="detailFacility">
+                            <field-map field-name="facilityId" from="detail.facilityId"/></entity-find-one>
+                        <script>facilityMap.put(detail.facilityId, detailFacility)</script>
+                    </if>
+                    <if condition="detailFacility.facilitySize">
+                        <if condition="detailFacility.facilitySizeUomId">
+                            <!-- convert to standard unit, like acres... if unit not an area return error -->
+                            <set field="currentSize" from="detailFacility.facilitySize"/>
+                            <set field="sizeUom" from="detailFacility.sizeUom"/>
+                            <if condition="sizeUom.uomTypeEnumId != 'UT_AREA_MEASURE'">
+                                <return error="true" message="Facility ${detailFacility.pseudoId}: ${detailFacility.facilityName} has a size UOM that is not an area"/></if>
+                            <if condition="activeSizeUom == null"><then>
+                                <set field="activeSizeUom" from="sizeUom"/>
+                            </then><else-if condition="activeSizeUom.uomId != sizeUom.uomId">
+                                <service-call name="org.moqui.impl.BasicServices.convert#Uom"
+                                              in-map="[uomId:sizeUom.uomId, toUomId:activeSizeUom.uomId, amount:currentSize]"
+                                              out-map="sizeConvertOut" out-map-add-to-existing="false"/>
+                                <check-errors/>
+                                <set field="currentSize" from="sizeConvertOut.convertedAmount"/>
+                            </else-if></if>
+                        </if>
+                        <set field="totalFacilitySize" from="totalFacilitySize + currentSize"/>
+                        <script>facilitySizeMap.put(detail.facilityId, currentSize)</script>
+                        <script>detailsToUpdate.add(detail)</script>
+                    </if>
+                </else></if>
+            </iterate>
+            <iterate list="detailsToUpdate" entry="detail">
+                <set field="currentSize" from="facilitySizeMap.get(detail.facilityId)"/>
+                <set field="detail.quantity" from="quantityRemaining * (currentSize / totalFacilitySize)"/>
+                <entity-update value-field="detail"/>
+            </iterate>
+            <message>Set quantity on ${detailsToUpdate.size()} details for item ${invoiceItemSeqId}, total facility size: ${ec.l10n.format(totalFacilitySize, '')}${activeSizeUom != null ? ' (' + activeSizeUom.description + ')' : ''}, quantity distributed: ${ec.l10n.format(quantityRemaining, '')}</message>
         </actions>
     </service>
 

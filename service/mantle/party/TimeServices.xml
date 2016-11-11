@@ -14,6 +14,73 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.0.xsd">
 
+    <service verb="get" noun="DescendantPeriods">
+        <in-parameters>
+            <parameter name="parentPeriodId" required="true"/>
+            <parameter name="timePeriodTypeId" required="true"/>
+            <parameter name="createMissing" type="Boolean" default="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="timePeriodList" type="List"><parameter name="timePeriod" type="Map"/></parameter>
+        </out-parameters>
+        <actions>
+            <if condition="createMissing"><entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="parentPeriod">
+                <field-map field-name="timePeriodId" from="parentPeriodId"/></entity-find-one></if>
+
+            <set field="timePeriodList" from="[]"/>
+            <entity-find entity-name="mantle.party.time.TimePeriod" list="childPeriodList">
+                <econdition field-name="parentPeriodId"/><order-by field-name="thruDate"/></entity-find>
+            <if condition="createMissing">
+                <if condition="childPeriodList"><then>
+                    <!-- add next child periods as needed -->
+                    <set field="lastChildPeriod" from="childPeriodList.get(childPeriodList.size() - 1)"/>
+                    <while condition="lastChildPeriod.thruDate &lt; parentPeriod.thruDate">
+                        <service-call name="mantle.party.TimeServices.getOrCreate#NextTimePeriod" out-map="createNextChildOut"
+                                      in-map="[timePeriodId:lastChildPeriod.timePeriodId]" out-map-add-to-existing="false"/>
+                        <set field="lastChildPeriod" from="createNextChildOut.nextTimePeriod"/>
+                        <script>childPeriodList.add(createNextChildOut.nextTimePeriod)</script>
+                    </while>
+                </then><else>
+                    <!-- find the TimePeriodType to use -->
+                    <entity-find-one entity-name="mantle.party.time.TimePeriodType" value-field="targetPeriodType">
+                        <field-map field-name="timePeriodTypeId"/></entity-find-one>
+                    <set field="childPeriodType" from="targetPeriodType"/>
+                    <while condition="childPeriodType?.parentPeriodTypeId &amp;&amp; childPeriodType.parentPeriodTypeId != parentPeriod.timePeriodTypeId">
+                        <entity-find-one entity-name="mantle.party.time.TimePeriodType" value-field="childPeriodType">
+                            <field-map field-name="timePeriodTypeId" from="childPeriodType.parentPeriodTypeId"/></entity-find-one>
+                    </while>
+                    <if condition="childPeriodType == null"><return error="true" message="Tried to create missing children but could not find parent period type for target type ${targetPeriodType.description}"/></if>
+
+                    <!-- find the most recent period of the type for the organization -->
+                    <entity-find entity-name="mantle.party.time.TimePeriod" list="mostRecentPeriodList" limit="1">
+                        <econdition field-name="partyId" from="parentPeriod.partyId"/>
+                        <econdition field-name="timePeriodTypeId" from="childPeriodType.timePeriodTypeId"/>
+                        <order-by field-name="-thruDate"/>
+                    </entity-find>
+                    <if condition="!mostRecentPeriodList"><return error="true" message="No previous TimePeriod found for organization ${parentPeriod.partyId} and type ${childPeriodType.timePeriodTypeId}"/></if>
+
+                    <!-- create next periods until we're to/past the thruDate of the current parentPeriod -->
+                    <set field="lastChildPeriod" from="mostRecentPeriodList.get(0)"/>
+                    <while condition="lastChildPeriod.thruDate &lt; parentPeriod.thruDate">
+                        <service-call name="mantle.party.TimeServices.getOrCreate#NextTimePeriod" out-map="createNextChildOut"
+                                      in-map="[timePeriodId:lastChildPeriod.timePeriodId]" out-map-add-to-existing="false"/>
+                        <set field="lastChildPeriod" from="createNextChildOut.nextTimePeriod"/>
+                        <script>childPeriodList.add(createNextChildOut.nextTimePeriod)</script>
+                    </while>
+                </else></if>
+            </if>
+            <iterate list="childPeriodList" entry="childPeriod">
+                <if condition="childPeriod.timePeriodTypeId == timePeriodTypeId"><then>
+                    <script>timePeriodList.add(childPeriod)</script>
+                </then><else>
+                    <service-call name="mantle.party.TimeServices.get#DescendantPeriods" out-map="childGetOut" out-map-add-to-existing="false"
+                                  in-map="[parentPeriodId:childPeriod.timePeriodId, timePeriodTypeId:timePeriodTypeId, createMissing:createMissing]"/>
+                    <script>if (childGetOut.timePeriodList) timePeriodList.addAll(childGetOut.timePeriodList)</script>
+                </else></if>
+            </iterate>
+        </actions>
+    </service>
+
     <service verb="create" noun="TimePeriod">
         <description>If previousPeriodId is not specified must specify fromDate, partyId, and timePeriodTypeId.
             Checks for an existing TimePeriod for the partyId, timePeriodTypeId, and fromDate.
@@ -36,11 +103,11 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="previousPeriod"><then>
                 <if condition="!partyId"><set field="partyId" from="previousPeriod.partyId"/></if>
                 <if condition="!timePeriodTypeId"><set field="timePeriodTypeId" from="previousPeriod.timePeriodTypeId"/></if>
-                <if condition="!fromDate"><script>
-                    def thruDateDt = new org.joda.time.MutableDateTime(previousPeriod.thruDate.time,
-                            org.joda.time.DateTimeZone.forTimeZone(ec.entity.databaseTimeZone))
-                    thruDateDt.addDays(1)
-                    fromDate = new java.sql.Date(thruDateDt.getMillis())
+                <if condition="fromDate == null"><script>
+                    def thruDateDt = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli((long) previousPeriod.thruDate.time),
+                            (java.time.ZoneId) ec.entity.databaseTimeZone.toZoneId())
+                    thruDateDt = thruDateDt.plusDays(1)
+                    fromDate = java.sql.Date.from(thruDateDt.toInstant())
                 </script></if>
                 <if condition="!parentPeriodId &amp;&amp; previousPeriod.parentPeriodId">
                     <!-- see if previous period's parent time range covers the new period, otherwise see if it has a next or create one -->
@@ -74,30 +141,30 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <!-- if no thruDate calc from fromDate and timePeriodType -->
-            <if condition="!thruDate"><script><![CDATA[
-                org.joda.time.DurationFieldType field = StupidUtilities.getJodaFieldFromUomId(timePeriodType.lengthUomId)
+            <if condition="thruDate == null"><script><![CDATA[
+                java.time.temporal.TemporalUnit field = getTemporalUnitFromUomId(timePeriodType.lengthUomId)
                 // use the database time zone, for Date fields this avoid moving across day boundaries
-                def thruDateDt = new org.joda.time.MutableDateTime(fromDate.time, org.joda.time.DateTimeZone.forTimeZone(ec.entity.databaseTimeZone))
+                def thruDateDt = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(fromDate.time), ec.entity.databaseTimeZone.toZoneId())
 
                 BigDecimal periodLength = timePeriodType.periodLength
                 if (periodLength < 1 && timePeriodType.lengthUomId == 'TF_mon') {
                     // special case for Semi-Month
-                    int maxDays = thruDateDt.dayOfMonth().getMaximumValue()
+                    int maxDays = thruDateDt.range(java.time.temporal.ChronoField.DAY_OF_MONTH).getMaximum()
                     int days = (maxDays * periodLength).setScale(0, BigDecimal.ROUND_DOWN).intValue()
-                    if (thruDateDt.dayOfMonth < days) thruDateDt.addDays(days)
-                    else thruDateDt.addDays(maxDays - days)
+                    if (thruDateDt.dayOfMonth < days) thruDateDt = thruDateDt.plusDays(days)
+                    else thruDateDt = thruDateDt.plusDays(maxDays - days)
                 } else {
-                    thruDateDt.add(field, periodLength as int)
+                    thruDateDt = thruDateDt.plus(periodLength.longValue(), field)
                 }
                 // step back by one day so thruDate is the last day of this period, not the first day of the next
-                thruDateDt.addDays(-1)
-                thruDate = new java.sql.Date(thruDateDt.getMillis())
-            ]]></script></if>
+                thruDateDt = thruDateDt.minusDays(1)
+                thruDate = java.sql.Date.from(thruDateDt.toInstant())
+                ]]></script></if>
 
             <!-- Set a default period name -->
             <if condition="!periodName">
-                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="partyDetail"/>
-                <set field="periodName" value="${partyDetail.organizationName} ${timePeriodType.description} ${fromDate}"/>
+                <entity-find-one entity-name="mantle.party.Organization" value-field="partyOrganization"/>
+                <set field="periodName" value="${partyOrganization.organizationName} ${timePeriodType.description} ${ec.l10n.format(fromDate, 'yyyy-MM-dd')}"/>
             </if>
             <!-- Set a default period num -->
             <if condition="!periodNum">
@@ -113,15 +180,15 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </then><else>
                     <!-- calculate based on calendar year -->
-                    <set field="fromDateDt" from="new org.joda.time.DateTime(fromDate.time, org.joda.time.DateTimeZone.forTimeZone(ec.entity.databaseTimeZone))"/>
+                    <set field="fromDateDt" from="java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(fromDate.time), ec.entity.databaseTimeZone.toZoneId())"/>
                     <if condition="timePeriodType.lengthUomId == 'TF_yr'"><then>
                         <set field="periodNum" from="fromDateDt.getYear()"/>
                     </then><else-if condition="timePeriodType.lengthUomId == 'TF_mon'">
-                        <set field="periodNum" from="((fromDateDt.getMonthOfYear() - 1) / timePeriodType.periodLength).intValue() + 1"/>
+                        <set field="periodNum" from="((fromDateDt.getMonthValue() - 1) / timePeriodType.periodLength).intValue() + 1"/>
                         <if condition="timePeriodType.periodLength &lt; 1 &amp;&amp; fromDateDt.getDayOfMonth() &gt; 1">
                             <set field="periodNum" from="periodNum + 1"/></if>
                     </else-if><else-if condition="timePeriodType.lengthUomId == 'TF_wk'">
-                        <set field="periodNum" from="(fromDateDt.getWeekOfWeekyear() / timePeriodType.periodLength).intValue()"/>
+                        <set field="periodNum" from="(fromDateDt.get(java.time.temporal.ChronoField.ALIGNED_WEEK_OF_YEAR) / timePeriodType.periodLength).intValue()"/>
                     </else-if></if>
                 </else></if>
             </if>
