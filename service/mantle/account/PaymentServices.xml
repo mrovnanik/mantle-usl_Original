@@ -217,13 +217,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <parameter name="paymentTotal" type="BigDecimal"/>
                 <parameter name="appliedTotal" type="BigDecimal"/>
                 <parameter name="unappliedTotal" type="BigDecimal"/>
-                <parameter name="distGroupEnum" type="Map"/>
             </parameter></parameter>
         </out-parameters>
         <actions>
             <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
                 <econdition field-name="paymentId" operator="in" from="paymentIdList"/>
-                <order-by field-name="distGroupEnumId,paymentRefNum,-effectiveDate,paymentId"/>
+                <order-by field-name="paymentRefNum,-effectiveDate,paymentId"/>
             </entity-find>
 
             <set field="paymentInfoList" from="[]"/>
@@ -237,9 +236,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="totalsOut" from="null"/>
                 <service-call name="mantle.account.PaymentServices.get#PaymentTotals" out-map="totalsOut"
                         in-map="[paymentId:paymentId]"/>
-
-                <entity-find-one entity-name="moqui.basic.Enumeration" value-field="distGroupEnum" cache="true">
-                    <field-map field-name="enumId" from="payment.distGroupEnumId"/></entity-find-one>
 
                 <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromPartyDetail">
                     <field-map field-name="partyId" from="payment.fromPartyId"/></entity-find-one>
@@ -305,9 +301,9 @@ along with this software (see the LICENSE.md file). If not, see
                         paymentSignatureSecondaryLocation:paymentSignatureSecondaryLocation,
                         paymentApplicationList:paymentApplicationList, invoiceList:invoiceList,
                         financialAccount:financialAccount, financialAccountTrans:financialAccountTrans,
-                        orderItemBillingList:orderItemBillingList, distGroupEnum:distGroupEnum]"/>
+                        orderItemBillingList:orderItemBillingList]"/>
                 <script>
-                    paymentInfo.amountWords = numberToWordsWithDecimal(payment.amount)
+                    paymentInfo.amountWords = StupidUtilities.numberToWordsWithDecimal(payment.amount)
 
                     paymentInfo.putAll(descOut)
                     paymentInfo.putAll(totalsOut)
@@ -380,11 +376,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="overrideGlAccountId"/><exclude field-name="acctgTransResultEnumId"/>
                 <exclude field-name="reconcileStatusId"/><exclude field-name="paymentMethodFileId"/></auto-parameters>
             <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
-            <parameter name="paymentStatusId" default-value="PmntDelivered"/>
-            <parameter name="statusId" default="paymentStatusId"/>
+            <parameter name="statusId" default-value="PmntDelivered"/>
             <parameter name="amount" type="BigDecimal"><description>Defaults to invoice unpaid total</description></parameter>
             <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
-            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp" format="dd.MM.yyyy"/>
             <parameter name="paymentRefNum"/>
             <parameter name="comments"/>
             <parameter name="visitId" default="ec.user.visitId"/>
@@ -405,8 +400,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="amount" from="totalOut.unpaidTotal"/>
             </if>
             <if condition="!amountUomId"><set field="amountUomId" from="invoice.currencyUomId"/></if>
-
-            <if condition="amount == 0"><return message="Not creating payment for invoice ${invoiceId}, unpaid total is zero"/></if>
 
             <set field="initialStatusId" from="statusId == 'PmntProposed' ? statusId : 'PmntPromised'"/>
 
@@ -463,7 +456,8 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="validStatusIds" from="['InvoiceInProcess', 'InvoiceFinalized', 'InvoiceSent', 'InvoiceWriteOff', 'InvoiceReceived', 'InvoiceApproved']"/>
             <if condition="!validStatusIds.contains(invoice.statusId)">
                 <entity-find-related-one value-field="invoice" relationship-name="Invoice#moqui.basic.StatusItem" to-value-field="statusEnum"/>
-                <return error="true" message="Invoice is in ${statusEnum.description} status, payment not allowed."/>
+                <!--<return error="true" message="Invoice is in ${statusEnum.description} status, payment not allowed."/>-->
+                <return error="true" message="Payment creation not allowed in actual status."/>
             </if>
 
             <if condition="invoice.statusId == 'InvoiceInProcess'">
@@ -952,8 +946,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="paymentGatewayResponseId" from="captOut.paymentGatewayResponseId"/>
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
             <if condition="paymentGatewayResponse?.resultSuccess == 'Y'"><then>
-                <service-call name="update#mantle.account.payment.Payment"
-                        in-map="[paymentId:payment.paymentId, effectiveDate:ec.user.nowTimestamp, statusId:'PmntDelivered']"/>
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDelivered']"/>
             </then><else>
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDeclined']"/>
             </else></if>
