@@ -30,6 +30,7 @@ dependencies {
     compile project(':framework')
     testCompile project(':framework').configurations.testCompile.allDependencies
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
+    //compile group: 'org.jumpmind.symmetric', name: 'symmetric-csv', version: '3.5.19'
 }
 
 // by default the Java plugin runs test on build, change to not do that (only run test if explicit task)
