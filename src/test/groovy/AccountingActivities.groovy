@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -28,15 +28,15 @@ import java.sql.Timestamp
    Or to quick run with saved DB copy use "gradle loadSave" once then each time "gradle reloadSave runtime/mantle/mantle-usl:test"
  */
 
-class AccountingActivities extends Specification {
+class EconomyActivities extends Specification {
     @Shared
-    protected final static Logger logger = LoggerFactory.getLogger(AccountingActivities.class)
+    protected final static Logger logger = LoggerFactory.getLogger(EconomyActivities.class)
     @Shared
     ExecutionContext ec
     @Shared
-    String organizationPartyId = 'ORG_ZIZI_RETAIL', currencyUomId = 'USD', timePeriodId
+    String organizationPartyId = 'SRO', currencyUomId = 'EUR', timePeriodId
     @Shared
-    String organizationPartyId2 = 'ORG_ZIZI_CORP', timePeriodId2
+    String organizationPartyId2 = 'SRO', timePeriodId2
     @Shared
     long effectiveTime = System.currentTimeMillis()
     @Shared
@@ -71,7 +71,7 @@ class AccountingActivities extends Specification {
         ec.artifactExecution.enableAuthz()
     }
 
-    def "initial Investment AcctgTrans"() {
+    /*def "initial Investment AcctgTrans"() {
         when:
         // find the current Fiscal Months
         Map fiscalMonthOut = ec.service.sync().name("mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods")
@@ -111,28 +111,8 @@ class AccountingActivities extends Specification {
                 .parameters([acctgTransId:acctgTransId, glAccountId:'332000000', debitCreditFlag:'C', amount:150000]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.post#AcctgTrans").parameters([acctgTransId:acctgTransId]).call()
 
-        // recalculate summaries, create GlAccountOrgTimePeriod records
-        ec.service.sync().name("mantle.ledger.LedgerServices.recalculate#GlAccountOrgSummaries").call()
-
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <acctgTrans acctgTransId="55100" organizationPartyId="ORG_ZIZI_RETAIL" amountUomId="USD" isPosted="Y" 
-                    acctgTransTypeEnumId="AttCapitalization" glFiscalTypeEnumId="GLFT_ACTUAL" postedDate="${effectiveTime}" transactionDate="${effectiveTime}">
-                <entries acctgTransEntrySeqId="01" amount="100000" glAccountId="111100000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="D"/>
-                <entries acctgTransEntrySeqId="02" amount="100000" glAccountId="332000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="C"/>
-            </acctgTrans>
-            <acctgTrans acctgTransId="55101" organizationPartyId="ORG_ZIZI_RETAIL" amountUomId="USD" isPosted="Y" 
-                    acctgTransTypeEnumId="AttCapitalization" glFiscalTypeEnumId="GLFT_ACTUAL" postedDate="${effectiveTime}" transactionDate="${effectiveTime}">
-                <entries acctgTransEntrySeqId="01" amount="125000" glAccountId="111100000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="D"/>
-                <entries acctgTransEntrySeqId="02" amount="100000" glAccountId="332000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="C"/>
-                <entries acctgTransEntrySeqId="03" amount="25000" glAccountId="333000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="C"/>
-            </acctgTrans>
-            <acctgTrans acctgTransId="55102" organizationPartyId="ORG_ZIZI_CORP" amountUomId="USD" isPosted="Y" 
-                    acctgTransTypeEnumId="AttCapitalization" glFiscalTypeEnumId="GLFT_ACTUAL" postedDate="${effectiveTime}" transactionDate="${effectiveTime}">
-                <entries acctgTransEntrySeqId="01" amount="150000" glAccountId="111100000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="D"/>
-                <entries acctgTransEntrySeqId="02" amount="150000" glAccountId="332000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="C"/>
-            </acctgTrans>
-            
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="111100000" timePeriodId="${timePeriodId}"
                     postedCredits="0" postedDebits="225000" endingBalance="225000" organizationPartyId="${organizationPartyId}"/>
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="332000000" timePeriodId="${timePeriodId}"
@@ -152,9 +132,9 @@ class AccountingActivities extends Specification {
 
         then:
         dataCheckErrors.size() == 0
-    }
+    }*/
 
-    def "record Retained Earnings and Dividends Distributable AcctgTrans"() {
+    /*def "record Retained Earnings and Dividends Distributable AcctgTrans"() {
         when:
         Map transOut = ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTrans")
                 .parameters([acctgTransTypeEnumId:'AttInternal', organizationPartyId:organizationPartyId, amountUomId:currencyUomId]).call()
@@ -176,16 +156,6 @@ class AccountingActivities extends Specification {
 
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <acctgTrans acctgTransId="55103" organizationPartyId="ORG_ZIZI_RETAIL" amountUomId="USD" isPosted="Y" 
-                    acctgTransTypeEnumId="AttInternal" glFiscalTypeEnumId="GLFT_ACTUAL" postedDate="${effectiveTime}" transactionDate="${effectiveTime}">
-                <entries acctgTransEntrySeqId="01" amount="100" glAccountId="850000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="D"/>
-                <entries acctgTransEntrySeqId="02" amount="100" glAccountId="336000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="C"/>
-            </acctgTrans>
-            <acctgTrans acctgTransId="55104" organizationPartyId="ORG_ZIZI_RETAIL" amountUomId="USD" isPosted="Y" 
-                    acctgTransTypeEnumId="AttInternal" glFiscalTypeEnumId="GLFT_ACTUAL" postedDate="${effectiveTime}" transactionDate="${effectiveTime}">
-                <entries acctgTransEntrySeqId="01" amount="60" glAccountId="336000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="D"/>
-                <entries acctgTransEntrySeqId="02" amount="60" glAccountId="335000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="C"/>
-            </acctgTrans>            
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
@@ -194,9 +164,9 @@ class AccountingActivities extends Specification {
 
         then:
         dataCheckErrors.size() == 0
-    }
+    }*/
 
-    def "pay Dividends AcctgTrans"() {
+    /*def "pay Dividends AcctgTrans"() {
         when:
         Map transOut = ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTrans")
                 .parameters([acctgTransTypeEnumId:'AttDisbursement', organizationPartyId:organizationPartyId, amountUomId:currencyUomId]).call()
@@ -207,7 +177,7 @@ class AccountingActivities extends Specification {
                 .parameters([acctgTransId:acctgTransId, glAccountId:'111100000', debitCreditFlag:'C', amount:30]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.post#AcctgTrans").parameters([acctgTransId:acctgTransId]).call()
 
-        /* pay out just one of the dividends to see amounts for both in accounts in different states
+        *//* pay out just one of the dividends to see amounts for both in accounts in different states
         transOut = ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTrans")
                 .parameters([acctgTransTypeEnumId:'AttDisbursement', organizationPartyId:organizationPartyId, amountUomId:currencyUomId]).call()
         acctgTransId = transOut.acctgTransId
@@ -216,15 +186,10 @@ class AccountingActivities extends Specification {
         ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTransEntry")
                 .parameters([acctgTransId:acctgTransId, glAccountId:'111100000', debitCreditFlag:'C', amount:50000]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.post#AcctgTrans").parameters([acctgTransId:acctgTransId]).call()
-        */
+        *//*
 
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-        <acctgTrans acctgTransId="55105" organizationPartyId="ORG_ZIZI_RETAIL" amountUomId="USD" isPosted="Y" 
-                acctgTransTypeEnumId="AttDisbursement" glFiscalTypeEnumId="GLFT_ACTUAL" postedDate="${effectiveTime}" transactionDate="${effectiveTime}">
-            <entries acctgTransEntrySeqId="01" amount="30" glAccountId="335000000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="D"/>
-            <entries acctgTransEntrySeqId="02" amount="30" glAccountId="111100000" reconcileStatusId="AterNot" isSummary="N" debitCreditFlag="C"/>
-        </acctgTrans>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
@@ -233,9 +198,9 @@ class AccountingActivities extends Specification {
 
         then:
         dataCheckErrors.size() == 0
-    }
+    }*/
 
-    def "expense Invoice"() {
+    def "expense invoice creation"() {
         when:
         Map invoiceOut = ec.service.sync().name("mantle.account.InvoiceServices.create#Invoice")
                 .parameters([fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId]).call()
@@ -285,9 +250,9 @@ class AccountingActivities extends Specification {
 
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.account.invoice.Invoice invoiceId="${invoiceId}" invoiceTypeEnumId="InvoiceSales" toPartyId="ORG_ZIZI_RETAIL"
-                    fromPartyId="ZiddlemanInc" acctgTransResultEnumId="AtrSuccess" invoiceDate="${effectiveTime}"
-                    currencyUomId="USD" statusId="InvoiceApproved">
+            <mantle.account.invoice.Invoice invoiceId="${invoiceId}" invoiceTypeEnumId="InvoiceSales" toPartyId="${organizationPartyId}"
+                    fromPartyId="ZiddlemanInc" invoiceDate="${effectiveTime}"
+                    currencyUomId="${currencyUomId}" statusId="InvoiceApproved">
                 <mantle.account.invoice.InvoiceItem amount="123.45" quantity="1" description="Land Line Service"
                         invoiceItemSeqId="01" itemTypeEnumId="ItemExpCommTelephone"/>
                 <mantle.account.invoice.InvoiceItem amount="234.56" quantity="1" description="Cell Service"
@@ -311,34 +276,6 @@ class AccountingActivities extends Specification {
                 <mantle.account.invoice.InvoiceItem amount="444.55" quantity="1" description="Real Estate Interest"
                         invoiceItemSeqId="11" itemTypeEnumId="ItemExpInterestReal"/>
             </mantle.account.invoice.Invoice>
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55106" invoiceId="${invoiceId}" otherPartyId="ZiddlemanInc"
-                    postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttPurchaseInvoice"
-                    glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
-                <mantle.ledger.transaction.AcctgTransEntry amount="123.45" glAccountId="614110000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="01" debitCreditFlag="D" acctgTransEntrySeqId="01"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="234.56" glAccountId="614140000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="02" debitCreditFlag="D" acctgTransEntrySeqId="02"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="345.67" glAccountId="614200000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="03" debitCreditFlag="D" acctgTransEntrySeqId="03"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="45.45" glAccountId="616300000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="04" debitCreditFlag="D" acctgTransEntrySeqId="04"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="101.01" glAccountId="652100000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="05" debitCreditFlag="D" acctgTransEntrySeqId="05"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="33.33" glAccountId="611210000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="06" debitCreditFlag="D" acctgTransEntrySeqId="06"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="111.11" glAccountId="611220000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="07" debitCreditFlag="D" acctgTransEntrySeqId="07"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="30" glAccountId="611230000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="08" debitCreditFlag="D" acctgTransEntrySeqId="08"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="34" glAccountId="611240000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="09" debitCreditFlag="D" acctgTransEntrySeqId="09"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="321.12" glAccountId="791000000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="10" debitCreditFlag="D" acctgTransEntrySeqId="10"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="444.55" glAccountId="792000000" reconcileStatusId="AterNot"
-                        invoiceItemSeqId="11" debitCreditFlag="D" acctgTransEntrySeqId="11"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="1824.25" glAccountId="210000000" reconcileStatusId="AterNot"
-                        glAccountTypeEnumId="GatAccountsPayable" debitCreditFlag="C" acctgTransEntrySeqId="12"/>
-            </mantle.ledger.transaction.AcctgTrans>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
@@ -348,4 +285,149 @@ class AccountingActivities extends Specification {
         then:
         dataCheckErrors.size() == 0
     }
+
+    def "return invoice creation - NoVAT"() {
+        when:
+
+        Map newInvoiceItem = [itemTypeEnumId:'ItemExpCommTelephone', description:'Land Line Service',
+                              quantity:1, amount:125]
+        List itemsToCreate = []
+        itemsToCreate.add(newInvoiceItem)
+
+        Map invoiceOut = ec.service.sync().name("mantle.account.InvoiceServicesEnhancements.createAndCheck#Invoice")
+                .parameters([fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId, invoiceCenterId:'AC_GASTRO',referenceNumber:'123', itemsToCreate:itemsToCreate]).call()
+        String invoiceId = invoiceOut.invoiceId
+
+        /*ec.service.sync().name("mantle.account.InvoiceServices.create#InvoiceItem")
+                .parameters([invoiceId:invoiceId, itemTypeEnumId:'ItemExpCommTelephone', description:'Land Line Service',
+                             quantity:1, amount:125]).call()*/
+
+        Map invoiceReturnOut = ec.service.sync().name("mantle.account.InvoiceServicesEnhancements.create#InvoiceReturn")
+                .parameters([fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId, referenceNumber:'123abc', createOptions:'copyContent', originalInvoiceId:invoiceId]).call()
+        String invoiceReturnId = invoiceReturnOut.createdInvoiceId
+
+        /*ec.service.sync().name("update#mantle.account.invoice.Invoice")
+                .parameters([invoiceId:invoiceId, statusId:'InvoiceReceived']).call()
+        ec.service.sync().name("update#mantle.account.invoice.Invoice")
+                .parameters([invoiceId:invoiceId, statusId:'InvoiceApproved']).call()*/
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.account.invoice.Invoice invoiceId="${invoiceReturnId}" invoiceTypeEnumId="InvoiceReturn" toPartyId="${organizationPartyId}"
+                    fromPartyId="ZiddlemanInc" invoiceDate="${effectiveTime}"
+                    currencyUomId="${currencyUomId}" statusId="InvoicePmtSent" invoiceCenterId="AC_GASTRO">
+                <mantle.account.invoice.InvoiceItem amount="${-125}" quantity="1" description="Land Line Service"
+                        invoiceItemSeqId="01" itemTypeEnumId="ItemExpCommTelephone" itemCenterId="AC_GASTRO"/>
+            </mantle.account.invoice.Invoice>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+
+    def "return invoice creation - VAT"() {
+        when:
+
+        Map newInvoiceItem = [itemTypeEnumId:'ItemExpOther', description:'Land Line Service',
+                              quantity:1, amount:1000, itemVatTypeId:'VAT_Base', itemVatRate:20]
+        List itemsToCreate = []
+        itemsToCreate.add(newInvoiceItem)
+
+        Map invoiceOut = ec.service.sync().name("mantle.account.InvoiceServicesEnhancements.createAndCheck#Invoice")
+                .parameters([fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId, invoiceCenterId:'AC_GASTRO',referenceNumber:'456', itemsToCreate:itemsToCreate, calculateVat: true]).call()
+        String invoiceId = invoiceOut.invoiceId
+
+        Map invoiceReturnOut = ec.service.sync().name("mantle.account.InvoiceServicesEnhancements.create#InvoiceReturn")
+                .parameters([fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId, referenceNumber:'456abc', createOptions:'copyContent', originalInvoiceId:invoiceId, calculateVat:true]).call()
+        String invoiceReturnId = invoiceReturnOut.createdInvoiceId
+
+        /*ec.service.sync().name("update#mantle.account.invoice.Invoice")
+                .parameters([invoiceId:invoiceId, statusId:'InvoiceReceived']).call()
+        ec.service.sync().name("update#mantle.account.invoice.Invoice")
+                .parameters([invoiceId:invoiceId, statusId:'InvoiceApproved']).call()*/
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.account.invoice.Invoice invoiceId="${invoiceReturnId}" invoiceTypeEnumId="InvoiceReturn" toPartyId="${organizationPartyId}"
+                    fromPartyId="ZiddlemanInc" invoiceDate="${effectiveTime}"
+                    currencyUomId="${currencyUomId}" statusId="InvoicePmtSent" invoiceCenterId="AC_GASTRO">
+                <mantle.account.invoice.InvoiceItem amount="${-1000}" quantity="1" description="Land Line Service"
+                        invoiceItemSeqId="01" itemTypeEnumId="ItemExpOther" itemCenterId="AC_GASTRO"/>
+                <mantle.account.invoice.InvoiceItem amount="${-200}" quantity="1" description="Calculated VAT"
+                        invoiceItemSeqId="02" itemTypeEnumId="ItemExpTaxesLic" itemCenterId="AC_GASTRO"/>
+            </mantle.account.invoice.Invoice>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "invoice and its proforma"() {
+        when:
+
+        /*Map newInvoiceItem = [itemTypeEnumId:'ItemExpOther', description:'Substitutes',
+                              quantity:1, amount:1000, itemVatTypeId:'VAT_Base', itemVatRate:25]*/
+        List itemsToCreate = []
+        itemsToCreate.add([itemTypeEnumId:'ItemExpOther', description:'Substitutes', quantity:1, amount:1000, itemVatTypeId:'VAT_Base', itemVatRate:25])
+        itemsToCreate.add([itemTypeEnumId:'ItemExpOther', description:'Goalies', quantity:1, amount:10000, itemVatTypeId:'VAT_Base', itemVatRate:33])
+
+        Map invoiceProforma = ec.service.sync().name("mantle.account.InvoiceServicesEnhancements.createAndCheck#Invoice")
+                .parameters([invoiceTypeEnumId:'InvoiceProforma',fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId, invoiceCenterId:'AC_WELLNESS',referenceNumber:'111222', itemsToCreate:itemsToCreate, calculateVat: true]).call()
+        String invoiceProformaId = invoiceProforma.invoiceId
+
+        Map invoiceRealToProforma = ec.service.sync().name("mantle.account.InvoiceServicesEnhancements.createInvoiceToProforma#Invoice")
+                .parameters([fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId, proformaInvoiceId:invoiceProformaId, newReferenceNumber:'112233aa', newDueDate:effectiveTime, newInvoiceDate:effectiveTime]).call()
+        String invoiceReturnId = invoiceRealToProforma.invoiceId
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.account.invoice.Invoice invoiceId="${invoiceReturnId}" invoiceTypeEnumId="InvoiceSales" toPartyId="${organizationPartyId}"
+                    fromPartyId="ZiddlemanInc" invoiceDate="${effectiveTime}"
+                    currencyUomId="${currencyUomId}" statusId="InvoiceApproved" invoiceCenterId="AC_WELLNESS" invoiceItemTotal="${1000*1.25 + 10000*1.33}">
+            </mantle.account.invoice.Invoice>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "invoice and incorrectly set proforma"() {
+        when:
+
+        /*Map newInvoiceItem = [itemTypeEnumId:'ItemExpOther', description:'Substitutes',
+                              quantity:1, amount:1000, itemVatTypeId:'VAT_Base', itemVatRate:25]*/
+        List itemsToCreate = []
+        itemsToCreate.add([itemTypeEnumId:'ItemExpOther', description:'Substitutes', quantity:1, amount:10000, itemVatTypeId:'VAT_Base', itemVatRate:25])
+        itemsToCreate.add([itemTypeEnumId:'ItemExpOther', description:'Goalies', quantity:1, amount:20000, itemVatTypeId:'VAT_Base', itemVatRate:33])
+
+        Map invoiceProforma = ec.service.sync().name("mantle.account.InvoiceServicesEnhancements.createAndCheck#Invoice")
+                .parameters([invoiceTypeEnumId:'InvoiceProforma',fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId, invoiceCenterId:'AC_WELLNESS',referenceNumber:'111432', itemsToCreate:itemsToCreate, calculateVat: true]).call()
+        String invoiceProformaId = invoiceProforma.invoiceId
+
+        Map invoiceRealToProforma = ec.service.sync().name("mantle.account.InvoiceServicesEnhancements.createInvoiceToProforma#Invoice")
+                .parameters([fromPartyId:'ZiddlemanInc', toPartyId:organizationPartyId, currencyUomId:currencyUomId, proformaInvoiceId:invoiceProformaId, newReferenceNumber:'111432', newDueDate:effectiveTime, newInvoiceDate:effectiveTime]).call()
+        String invoiceReturnId = invoiceRealToProforma.invoiceId
+
+        //display errors
+        //if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        //ec.message.hasError()
+        ec.message.getErrorsString().contains('Invoice with same external number from supplier already exist!')
+    }
 }
+
+

@@ -19,7 +19,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <out-parameters><parameter name="fromAcctgTransId"/><parameter name="toAcctgTransId"/></out-parameters>
         <actions>
-            <!-- <log level="warn" message="======== post#Invoice ${invoiceId}"/> -->
+             <log level="warn" message="======== post#Invoice ${invoiceId}"/>
 
             <!-- make sure there is no AcctgTrans for this invoiceId -->
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="existingTransList">
@@ -60,7 +60,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if no preferences for from or to, we shouldn't post anything -->
             <if condition="!fromPartyAcctgPreference &amp;&amp; !toPartyAcctgPreference">
-                <log level="trace" message="Not posting invoice [${invoiceId}], could not find PartyAcctgPreference for From Party [${invoice.fromPartyId}], To Party [${invoice.toPartyId}], or Invoice Override Party [${invoice.overrideOrgPartyId}]"/>
+                <log level="warn" message="Not posting invoice [${invoiceId}], could not find PartyAcctgPreference for From Party [${invoice.fromPartyId}], To Party [${invoice.toPartyId}], or Invoice Override Party [${invoice.overrideOrgPartyId}]"/>
                 <set field="invoice.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
                 <entity-update value-field="invoice"/>
                 <return/>
