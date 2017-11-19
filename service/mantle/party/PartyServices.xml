@@ -13,6 +13,50 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.0.xsd">
+
+    <service verb="get" noun="PartyList" type="script"
+             location="component://mantle-usl/service/mantle/party/PartyServices/getPartyListForEnum.groovy">
+        <in-parameters>
+            <parameter name="partyId"/>
+            <parameter name="pseudoId"/>
+            <parameter name="partyTypeEnumId"/>
+            <parameter name="roleTypeId"/>
+            <parameter name="username"/>
+
+            <parameter name="combinedName"/>
+            <parameter name="organizationName"/>
+            <parameter name="firstName"/><parameter name="lastName"/><parameter name="suffix"/>
+
+            <parameter name="address1"/><parameter name="address2"/>
+            <parameter name="city"/><parameter name="stateProvinceGeoId"/><parameter name="postalCode"/>
+
+            <parameter name="countryCode"/><parameter name="areaCode"/><parameter name="contactNumber"/>
+
+            <parameter name="emailAddress"/>
+
+            <parameter name="assetSerialNumber"/>
+            <parameter name="contactOwnerPartyId"/>
+
+            <parameter name="orderByField" default-value="firstName,organizationName"/>
+            <parameter name="pageIndex" type="Integer" default="0"/>
+            <parameter name="pageSize" type="Integer" default="20"/>
+            <parameter name="pageNoLimit" type="Boolean" default="false"/>
+            <parameter name="leadingWildcard" type="Boolean" default="false"><description>Defaults for false for DB query performance reasons.</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="partyIdList" type="List"><parameter name="partyId"/></parameter>
+            <parameter name="partyFullList" type="List">
+                <parameter name="partyId"/>
+                <parameter name="organizationName"/>
+            </parameter>
+            <parameter name="partyIdListCount" type="Integer"/>
+            <parameter name="partyIdListPageIndex" type="Integer"/>
+            <parameter name="partyIdListPageSize" type="Integer"/>
+            <parameter name="partyIdListPageMaxIndex" type="Integer"/>
+            <parameter name="partyIdListPageRangeLow" type="Integer"/>
+            <parameter name="partyIdListPageRangeHigh" type="Integer"/>
+        </out-parameters>
+    </service>
     <service verb="find" noun="Party" type="script"
              location="component://mantle-usl/service/mantle/party/PartyServices/findParty.groovy">
         <in-parameters>
