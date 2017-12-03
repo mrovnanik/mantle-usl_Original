@@ -28,6 +28,8 @@ EntityFind ef = ec.entity.find("mantle.party.FindPartyViewEnhanced").distinct(tr
 
 ef.selectField("partyId")
 ef.selectField("organizationName")
+ef.selectField("firstName")
+ef.selectField("lastName")
 
 if (partyId) { ef.condition(ec.entity.conditionFactory.makeCondition("partyId", EntityCondition.LIKE, (leadingWildcard ? "%" : "") + partyId + "%").ignoreCase()) }
 if (pseudoId) { ef.condition(ec.entity.conditionFactory.makeCondition("pseudoId", EntityCondition.LIKE, (leadingWildcard ? "%" : "") + pseudoId + "%").ignoreCase()) }
@@ -118,7 +120,7 @@ EntityList el = ef.list()
 for (EntityValue ev in el) {
     def singlePartyData = [:]
     singlePartyData.put("partyId", ev.partyId)
-    singlePartyData.put("organizationName", ev.organizationName)
+    singlePartyData.put("organizationName", ev.organizationName ?: ev.lastName + ' ' + ev.firstName)
 
     partyIdList.add(ev.partyId)
     partyFullList.add(singlePartyData)
