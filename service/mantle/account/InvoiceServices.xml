@@ -1175,4 +1175,15 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[invoiceContentId:invoiceContentId, contentLocation:contentLocation]"/></if>
         </actions>
     </service>
+    <service verb="convertToArray" noun="ManualCategory" location="component://mantle-usl/service/mantle/account/InvoiceServices/convertCategoryToArray.groovy" type="script">
+        <in-parameters>
+            <parameter name="manualCategory"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="tagField" type="NewList"/>
+        </out-parameters>
+        <actions>
+
+        </actions>
+    </service>
 </services>
